@@ -30,6 +30,7 @@ actor {
   stable var stableUserRoles : [(Principal, AccessControl.UserRole)] = [];
   stable var stableAdminAssigned : Bool = false;
   stable var stableInviteCodes : [(Text, InviteLinks.InviteCode)] = [];
+  stable var stableGuestPassword : Text = "";
 
   public type UserProfile = { name : Text };
 
@@ -63,6 +64,7 @@ actor {
   var wishId = stableWishId;
   var songId = stableSongId;
   var backgroundMusic : ?Storage.ExternalBlob = stableBackgroundMusic;
+  var guestPassword : Text = stableGuestPassword;
 
   do {
     for (photo in stablePhotos.vals()) { photoStore.add(photo.id, photo) };
@@ -84,6 +86,7 @@ actor {
     stableUserRoles := accessControlState.userRoles.entries().toArray();
     stableAdminAssigned := accessControlState.adminAssigned;
     stableInviteCodes := inviteLinksState.inviteCodes.entries().toArray();
+    stableGuestPassword := guestPassword;
   };
 
   public shared ({ caller }) func claimFirstAdmin() : async Bool {
@@ -113,6 +116,23 @@ actor {
       Runtime.trap("Unauthorized");
     };
     userProfiles.add(caller, profile);
+  };
+
+  // Guest password methods
+  public shared ({ caller }) func setGuestPassword(password : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized");
+    };
+    guestPassword := password;
+  };
+
+  public query func validateGuestPassword(password : Text) : async Bool {
+    if (Text.equal(guestPassword, "")) { return true }; // no password set = open
+    Text.equal(guestPassword, password);
+  };
+
+  public query ({ caller }) func getGuestPasswordSet() : async Bool {
+    AccessControl.isAdmin(accessControlState, caller) and not Text.equal(guestPassword, "");
   };
 
   // Invite link methods

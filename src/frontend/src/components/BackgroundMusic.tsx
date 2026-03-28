@@ -5,6 +5,10 @@ import { toast } from "sonner";
 import type { backendInterface } from "../backend";
 import { ExternalBlob } from "../backend";
 
+// Royalty-free birthday/celebration background music fallback
+const FALLBACK_MUSIC_URL =
+  "https://assets.mixkit.co/music/preview/mixkit-birthday-cake-waltz-612.mp3";
+
 interface Props {
   actor: backendInterface | null;
   isAdmin: boolean;
@@ -28,47 +32,65 @@ export default function BackgroundMusic({
   const hasLoadedRef = useRef(false);
   const userMutedRef = useRef(false);
 
+  const startAudio = useCallback(async (src: string) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.src = src;
+    audio.loop = true;
+    audio.volume = 0.3;
+    audio.muted = true;
+    audio.load();
+
+    const playResult = await audio.play().catch(() => null);
+    if (playResult === null) {
+      // Autoplay fully blocked -- show play button
+      setNeedsInteraction(true);
+      setBgLoaded(true);
+      return;
+    }
+    setBgLoaded(true);
+
+    // Unmute on first user interaction
+    const unmute = () => {
+      if (!userMutedRef.current) {
+        audio.muted = false;
+        setMuted(false);
+      }
+    };
+    document.addEventListener("click", unmute, { once: true });
+    document.addEventListener("scroll", unmute, { once: true });
+    document.addEventListener("touchstart", unmute, { once: true });
+  }, []);
+
   const loadAndPlay = useCallback(async () => {
-    if (!actor || hasLoadedRef.current) return;
+    if (hasLoadedRef.current) return;
     hasLoadedRef.current = true;
     try {
-      const blob = await actor.getBackgroundMusic();
-      if (!blob) return;
-      const audio = audioRef.current;
-      if (!audio) return;
-      audio.src = blob.getDirectURL();
-      audio.loop = true;
-      audio.volume = 0.3;
-      audio.muted = true;
-      audio.load();
-
-      const playResult = await audio.play().catch(() => null);
-      if (playResult === null) {
-        // Autoplay fully blocked -- show play button
-        setNeedsInteraction(true);
-        setBgLoaded(true);
-        return;
-      }
-      setBgLoaded(true);
-
-      // Unmute on first user interaction
-      const unmute = () => {
-        if (!userMutedRef.current) {
-          audio.muted = false;
-          setMuted(false);
+      // Try backend-uploaded music first
+      if (actor) {
+        const blob = await actor.getBackgroundMusic().catch(() => null);
+        if (blob) {
+          await startAudio(blob.getDirectURL());
+          return;
         }
-      };
-      document.addEventListener("click", unmute, { once: true });
-      document.addEventListener("scroll", unmute, { once: true });
-      document.addEventListener("touchstart", unmute, { once: true });
+      }
+      // Fall back to built-in celebration music
+      await startAudio(FALLBACK_MUSIC_URL);
     } catch {
       hasLoadedRef.current = false; // allow retry
+      // Try fallback if backend failed
+      try {
+        await startAudio(FALLBACK_MUSIC_URL);
+      } catch {
+        // silently ignore
+      }
     }
-  }, [actor]);
+  }, [actor, startAudio]);
 
   useEffect(() => {
-    if (actor) loadAndPlay();
-  }, [actor, loadAndPlay]);
+    // Start loading music as soon as component mounts
+    loadAndPlay();
+  }, [loadAndPlay]);
 
   // Handle pause/resume when playlist song plays
   useEffect(() => {
@@ -104,6 +126,7 @@ export default function BackgroundMusic({
     userMutedRef.current = false;
     await audio.play().catch(() => {});
     setNeedsInteraction(false);
+    setBgLoaded(true);
   };
 
   const handleUploadBg = useCallback(async () => {
@@ -113,8 +136,8 @@ export default function BackgroundMusic({
     setUploadProgress(0);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const eb = ExternalBlob.fromBytes(bytes).withUploadProgress((pct) =>
-        setUploadProgress(pct),
+      const eb = ExternalBlob.fromBytes(bytes, file.type).withUploadProgress(
+        (pct) => setUploadProgress(pct),
       );
       await actor.setBackgroundMusic(eb);
       toast.success("Background music updated! 🎵");
@@ -134,7 +157,7 @@ export default function BackgroundMusic({
   return (
     <>
       {/* biome-ignore lint/a11y/useMediaCaption: background music */}
-      <audio ref={audioRef} loop preload="none" />
+      <audio ref={audioRef} loop preload="auto" />
 
       <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
         <AnimatePresence>
@@ -152,6 +175,13 @@ export default function BackgroundMusic({
                 style={{ color: "oklch(0.50 0.15 0)" }}
               >
                 🎵 Background Music
+              </p>
+              <p
+                className="text-xs mb-2"
+                style={{ color: "oklch(0.55 0.08 0)" }}
+              >
+                A default celebration tune plays automatically. Upload your own
+                to replace it.
               </p>
               <input
                 ref={fileRef}

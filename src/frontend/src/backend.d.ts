@@ -66,6 +66,8 @@ export interface backendInterface {
     revokeInviteCode(code: string): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setBackgroundMusic(blob: ExternalBlob): Promise<void>;
+    setGuestPassword(password: string): Promise<void>;
     submitWish(name: string, message: string): Promise<WishRecord>;
+    validateGuestPassword(password: string): Promise<boolean>;
     validateInviteCode(code: string): Promise<boolean>;
 }

@@ -41,6 +41,11 @@ export const WishRecord = IDL.Record({
   'submittedAt' : IDL.Int,
   'message' : IDL.Text,
 });
+export const InviteCode = IDL.Record({
+  'code' : IDL.Text,
+  'created' : IDL.Int,
+  'used' : IDL.Bool,
+});
 
 export const idlService = IDL.Service({
   '_caffeineStorageBlobIsLive' : IDL.Func([IDL.Vec(IDL.Nat8)], [IDL.Bool], ['query']),
@@ -57,17 +62,24 @@ export const idlService = IDL.Service({
   'deletePhoto' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   'deleteSong' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   'deleteWish' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+  'generateInviteCode' : IDL.Func([IDL.Text], [IDL.Text], []),
   'getBackgroundMusic' : IDL.Func([], [IDL.Opt(ExternalBlob)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getGuestPasswordSet' : IDL.Func([], [IDL.Bool], ['query']),
   'getUserProfile' : IDL.Func([IDL.Principal], [IDL.Opt(UserProfile)], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'listInviteCodes' : IDL.Func([], [IDL.Vec(InviteCode)], ['query']),
   'listPhotos' : IDL.Func([], [IDL.Vec(PhotoRecord)], ['query']),
   'listSongs' : IDL.Func([], [IDL.Vec(SongRecord)], ['query']),
   'listWishes' : IDL.Func([], [IDL.Vec(WishRecord)], ['query']),
+  'revokeInviteCode' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setBackgroundMusic' : IDL.Func([ExternalBlob], [], []),
+  'setGuestPassword' : IDL.Func([IDL.Text], [], []),
   'submitWish' : IDL.Func([IDL.Text, IDL.Text], [WishRecord], []),
+  'validateGuestPassword' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
+  'validateInviteCode' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
 });
 
 export const idlInitArgs = [];
@@ -82,6 +94,7 @@ export const idlFactory = ({ IDL }) => {
   const UserRole = IDL.Variant({ 'admin' : IDL.Null, 'user' : IDL.Null, 'guest' : IDL.Null });
   const UserProfile = IDL.Record({ 'name' : IDL.Text });
   const WishRecord = IDL.Record({ 'id' : IDL.Nat, 'name' : IDL.Text, 'submittedAt' : IDL.Int, 'message' : IDL.Text });
+  const InviteCode = IDL.Record({ 'code' : IDL.Text, 'created' : IDL.Int, 'used' : IDL.Bool });
   return IDL.Service({
     '_caffeineStorageBlobIsLive' : IDL.Func([IDL.Vec(IDL.Nat8)], [IDL.Bool], ['query']),
     '_caffeineStorageBlobsToDelete' : IDL.Func([], [IDL.Vec(IDL.Vec(IDL.Nat8))], ['query']),
@@ -97,17 +110,24 @@ export const idlFactory = ({ IDL }) => {
     'deletePhoto' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'deleteSong' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'deleteWish' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+    'generateInviteCode' : IDL.Func([IDL.Text], [IDL.Text], []),
     'getBackgroundMusic' : IDL.Func([], [IDL.Opt(ExternalBlob)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getGuestPasswordSet' : IDL.Func([], [IDL.Bool], ['query']),
     'getUserProfile' : IDL.Func([IDL.Principal], [IDL.Opt(UserProfile)], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'listInviteCodes' : IDL.Func([], [IDL.Vec(InviteCode)], ['query']),
     'listPhotos' : IDL.Func([], [IDL.Vec(PhotoRecord)], ['query']),
     'listSongs' : IDL.Func([], [IDL.Vec(SongRecord)], ['query']),
     'listWishes' : IDL.Func([], [IDL.Vec(WishRecord)], ['query']),
+    'revokeInviteCode' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setBackgroundMusic' : IDL.Func([ExternalBlob], [], []),
+    'setGuestPassword' : IDL.Func([IDL.Text], [], []),
     'submitWish' : IDL.Func([IDL.Text, IDL.Text], [WishRecord], []),
+    'validateGuestPassword' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
+    'validateInviteCode' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
   });
 };
 

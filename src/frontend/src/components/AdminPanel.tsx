@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Identity } from "@icp-sdk/core/agent";
-import { Copy, Link, Loader2, Plus, Trash2 } from "lucide-react";
+import { Copy, Eye, EyeOff, Link, Loader2, Plus, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import type { backendInterface } from "../backend";
@@ -155,8 +155,15 @@ function AdminContent({ actor }: { actor: backendInterface | null }) {
       >
         ✅ Logged in as Admin
       </div>
-      <Tabs defaultValue="invites">
+      <Tabs defaultValue="password">
         <TabsList className="w-full rounded-xl mb-4">
+          <TabsTrigger
+            value="password"
+            className="flex-1 rounded-lg"
+            data-ocid="admin.tab"
+          >
+            🔑 Password
+          </TabsTrigger>
           <TabsTrigger
             value="invites"
             className="flex-1 rounded-lg"
@@ -179,6 +186,10 @@ function AdminContent({ actor }: { actor: backendInterface | null }) {
             Navigate
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="password">
+          <GuestPasswordPanel actor={actor} />
+        </TabsContent>
 
         <TabsContent value="invites">
           <InviteLinksPanel actor={actor} />
@@ -240,6 +251,159 @@ function AdminContent({ actor }: { actor: backendInterface | null }) {
   );
 }
 
+async function ensureAdmin(actor: backendInterface): Promise<boolean> {
+  try {
+    const isAdmin = await actor.isCallerAdmin();
+    if (isAdmin) return true;
+    // Try to claim first admin
+    const claimed = await (actor as any).claimFirstAdmin?.();
+    if (claimed) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function GuestPasswordPanel({ actor }: { actor: backendInterface | null }) {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const [showPw, setShowPw] = useState(false);
+
+  const handleSave = async () => {
+    if (!actor) return;
+    if (password !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const adminOk = await ensureAdmin(actor);
+      if (!adminOk) {
+        setError("Not recognized as admin. Please log out and log in again.");
+        return;
+      }
+      await actor.setGuestPassword(password);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      setPassword("");
+      setConfirm("");
+    } catch (_e) {
+      setError("Failed to save password. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClear = async () => {
+    if (!actor) return;
+    setSaving(true);
+    setError("");
+    try {
+      const adminOk = await ensureAdmin(actor);
+      if (!adminOk) {
+        setError("Not recognized as admin. Please log out and log in again.");
+        return;
+      }
+      await actor.setGuestPassword("");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setError("Failed to clear password.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Set a password that guests must enter to access the site. Leave blank to
+        remove the password requirement.
+      </p>
+
+      <div className="space-y-2">
+        <div className="relative">
+          <Input
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError("");
+            }}
+            placeholder="New password"
+            type={showPw ? "text" : "password"}
+            className="rounded-xl pr-10"
+            style={{ background: "oklch(1 0 0 / 0.7)" }}
+            data-ocid="admin.input"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPw((v) => !v)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            tabIndex={-1}
+          >
+            {showPw ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+
+        <Input
+          value={confirm}
+          onChange={(e) => {
+            setConfirm(e.target.value);
+            setError("");
+          }}
+          placeholder="Confirm password"
+          type={showPw ? "text" : "password"}
+          className="rounded-xl"
+          style={{ background: "oklch(1 0 0 / 0.7)" }}
+          data-ocid="admin.input"
+        />
+      </div>
+
+      {error && (
+        <p className="text-sm" style={{ color: "oklch(0.50 0.18 27)" }}>
+          {error}
+        </p>
+      )}
+
+      {saved && (
+        <p className="text-sm" style={{ color: "oklch(0.45 0.12 160)" }}>
+          ✅ Saved successfully!
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        <Button
+          onClick={handleSave}
+          disabled={saving || !password.trim()}
+          className="flex-1 rounded-xl"
+          style={{ background: "oklch(0.55 0.15 0)", color: "white" }}
+          data-ocid="admin.primary_button"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+          {saving ? "Saving..." : "Set Password"}
+        </Button>
+        <Button
+          onClick={handleClear}
+          disabled={saving}
+          variant="outline"
+          className="rounded-xl"
+          data-ocid="admin.secondary_button"
+        >
+          Clear
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function InviteLinksPanel({ actor }: { actor: backendInterface | null }) {
   const [codes, setCodes] = useState<InviteCodeRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,8 +416,8 @@ function InviteLinksPanel({ actor }: { actor: backendInterface | null }) {
     try {
       const list = await (actor as any).listInviteCodes();
       setCodes(list);
-    } catch (e) {
-      console.error("Failed to fetch invite codes", e);
+    } catch (_e) {
+      console.error("Failed to fetch invite codes");
     } finally {
       setLoading(false);
     }
@@ -272,8 +436,8 @@ function InviteLinksPanel({ actor }: { actor: backendInterface | null }) {
       await (actor as any).generateInviteCode(code);
       setCustomCode("");
       await fetchCodes();
-    } catch (e) {
-      console.error("Failed to generate invite code", e);
+    } catch (_e) {
+      console.error("Failed to generate invite code");
     } finally {
       setGenerating(false);
     }
@@ -284,8 +448,8 @@ function InviteLinksPanel({ actor }: { actor: backendInterface | null }) {
     try {
       await (actor as any).revokeInviteCode(code);
       await fetchCodes();
-    } catch (e) {
-      console.error("Failed to revoke invite code", e);
+    } catch (_e) {
+      console.error("Failed to revoke invite code");
     }
   };
 

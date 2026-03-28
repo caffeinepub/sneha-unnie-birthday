@@ -7,6 +7,11 @@ import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
 export type ExternalBlob = Uint8Array;
+export interface InviteCode {
+  'code' : string,
+  'created' : bigint,
+  'used' : boolean,
+}
 export interface PhotoRecord {
   'id' : bigint,
   'blob' : ExternalBlob,
@@ -56,17 +61,24 @@ export interface _SERVICE {
   'deletePhoto' : ActorMethod<[bigint], boolean>,
   'deleteSong' : ActorMethod<[bigint], boolean>,
   'deleteWish' : ActorMethod<[bigint], boolean>,
+  'generateInviteCode' : ActorMethod<[string], string>,
   'getBackgroundMusic' : ActorMethod<[], [] | [ExternalBlob]>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getGuestPasswordSet' : ActorMethod<[], boolean>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'listInviteCodes' : ActorMethod<[], Array<InviteCode>>,
   'listPhotos' : ActorMethod<[], Array<PhotoRecord>>,
   'listSongs' : ActorMethod<[], Array<SongRecord>>,
   'listWishes' : ActorMethod<[], Array<WishRecord>>,
+  'revokeInviteCode' : ActorMethod<[string], boolean>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setBackgroundMusic' : ActorMethod<[ExternalBlob], undefined>,
+  'setGuestPassword' : ActorMethod<[string], undefined>,
   'submitWish' : ActorMethod<[string, string], WishRecord>,
+  'validateGuestPassword' : ActorMethod<[string], boolean>,
+  'validateInviteCode' : ActorMethod<[string], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

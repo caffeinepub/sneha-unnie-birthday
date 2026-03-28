@@ -7,6 +7,98 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { SongRecord, backendInterface } from "../backend";
 import { ExternalBlob } from "../backend";
+const STATIC_SONGS: SongRecord[] = [
+  {
+    id: BigInt(-1),
+    title: "Happy Birthday Sister Mine",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/happy_birthday_sister_mine_neume.io-019d34ff-fdb7-77aa-9260-c6d85d206472-1.mp3",
+    ),
+  },
+  {
+    id: BigInt(-2),
+    title: "Happy Birthday Sneha Unnie",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/happy_birthday_sneha_unnie_neume.io_1-019d3500-1981-7078-aced-764bdf21bc9a-2.mp3",
+    ),
+  },
+  {
+    id: BigInt(-3),
+    title: "Best Sister In The World",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/best_sister_in_the_world_neume.io-019d3500-1a1f-76a8-b5a6-b17794837128-3.mp3",
+    ),
+  },
+  {
+    id: BigInt(-4),
+    title: "Happy Birthday Engineer Sis",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/happy_birthday_engineer_sis_neume.io-019d3500-254b-701b-a52c-0499ff3fffce-4.mp3",
+    ),
+  },
+  {
+    id: BigInt(-5),
+    title: "Jump Jump Birthday Girl",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/jump_jump_birthday_girl_neume.io-019d3500-262d-778b-8fd9-8171aac86680-5.mp3",
+    ),
+  },
+  {
+    id: BigInt(-6),
+    title: "Jump Jump Birthday Girl (Alt)",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/jump_jump_birthday_girl_neume.io-019d3500-272c-7221-9115-d1eabc8fb6a4-6.mp3",
+    ),
+  },
+  {
+    id: BigInt(-7),
+    title: "Best Sister",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/best_sister_neume.io-019d3500-2a3e-7247-bfc4-d05b843b9f94-7.mp3",
+    ),
+  },
+  {
+    id: BigInt(-8),
+    title: "26 and Slayin Engineer Queen",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/26_and_slayin_engineer_queen_neume.io-019d3500-2bd5-778b-969d-b54104250edd-8.mp3",
+    ),
+  },
+  {
+    id: BigInt(-9),
+    title: "Sneha Unnie",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/sneha_unnie_neume.io-019d3500-2d9e-7324-b818-a96c7f9e5205-9.mp3",
+    ),
+  },
+  {
+    id: BigInt(-10),
+    title: "Engineer Queen 26",
+    artist: "Birthday Special",
+    uploadedAt: BigInt(0),
+    blob: ExternalBlob.fromURL(
+      "/assets/uploads/engineer_queen_26_neume.io-019d3500-35bd-714c-9150-606e02f16029-10.mp3",
+    ),
+  },
+];
 
 interface Props {
   actor: backendInterface | null;
@@ -29,6 +121,7 @@ export default function MusicPlayer({
 }: Props) {
   const [songs, setSongs] = useState<SongRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -59,27 +152,42 @@ export default function MusicPlayer({
 
   const loadSongs = useCallback(async () => {
     if (!actor) return;
+    setLoadError(false);
+    setLoading(true);
     try {
       const list = await actor.listSongs();
-      setSongs(list);
+      setSongs([...STATIC_SONGS, ...list]);
     } catch {
       toast.error("Failed to load songs");
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   }, [actor]);
 
   useEffect(() => {
-    if (actor) loadSongs();
+    if (actor) {
+      loadSongs();
+    } else {
+      setSongs(STATIC_SONGS);
+      setLoading(false);
+    }
   }, [actor, loadSongs]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally sync on idx/id change only
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentSong) return;
+    const shouldPlay = isPlayingRef.current;
     audio.src = currentSong.blob.getDirectURL();
     audio.load();
-    if (isPlayingRef.current) audio.play().catch(() => {});
+    if (shouldPlay) {
+      // Small delay to allow audio to buffer before play attempt
+      const t = setTimeout(() => {
+        audio.play().catch(() => {});
+      }, 100);
+      return () => clearTimeout(t);
+    }
   }, [currentIdx, currentSong?.id]);
 
   useEffect(() => {
@@ -164,8 +272,8 @@ export default function MusicPlayer({
     setUploadProgress(0);
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const eb = ExternalBlob.fromBytes(bytes).withUploadProgress((pct) =>
-        setUploadProgress(pct),
+      const eb = ExternalBlob.fromBytes(bytes, file.type).withUploadProgress(
+        (pct) => setUploadProgress(pct),
       );
       await actor.addSong(eb, title.trim(), artist.trim() || "Unknown");
       toast.success("Song uploaded! 🎵");
@@ -431,6 +539,24 @@ export default function MusicPlayer({
               {loading ? (
                 <div className="text-center py-8">
                   <span className="text-3xl animate-spin inline-block">🎵</span>
+                </div>
+              ) : loadError ? (
+                <div
+                  className="text-center py-12"
+                  data-ocid="music.error_state"
+                >
+                  <p className="text-4xl mb-3">😔</p>
+                  <p className="text-muted-foreground mb-4">
+                    Could not load songs. Please try again.
+                  </p>
+                  <Button
+                    onClick={loadSongs}
+                    style={{ background: "oklch(0.55 0.15 0)", color: "white" }}
+                    className="rounded-full px-6"
+                    data-ocid="music.primary_button"
+                  >
+                    Retry 🔄
+                  </Button>
                 </div>
               ) : songs.length === 0 ? (
                 <div
